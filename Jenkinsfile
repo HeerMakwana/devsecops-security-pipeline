@@ -64,28 +64,29 @@ pipeline {
                     def scanStatus = sh(
                         script: '''
                             docker run \
-                              --name zap-scan \
-                              --network devsecops-net \
-                              ghcr.io/zaproxy/zaproxy:stable \
-                              zap-baseline.py \
-                              -t http://devsecops-app:5000 \
-                              -r zap-report.html \
-                              -J zap-report.json
+                            --name zap-scan \
+                            --network devsecops-net \
+                            -v zap-scan-data:/zap/wrk:rw \
+                            ghcr.io/zaproxy/zaproxy:stable \
+                            zap-baseline.py \
+                            -t http://devsecops-app:5000 \
+                            -r zap-report.html \
+                            -J zap-report.json
                         ''',
                         returnStatus: true
                     )
 
+                    echo "ZAP exit code: ${scanStatus}"
+
                     sh '''
                         docker cp \
-                          zap-scan:/zap/wrk/zap-report.html \
-                          zap-reports/zap-report.html
+                        zap-scan:/zap/wrk/zap-report.html \
+                        zap-reports/zap-report.html
 
                         docker cp \
-                          zap-scan:/zap/wrk/zap-report.json \
-                          zap-reports/zap-report.json
+                        zap-scan:/zap/wrk/zap-report.json \
+                        zap-reports/zap-report.json
                     '''
-
-                    echo "ZAP exit code: ${scanStatus}"
 
                     if (scanStatus != 0) {
                         echo 'Review ZAP findings and scan logs.'
