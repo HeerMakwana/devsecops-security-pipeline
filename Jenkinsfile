@@ -75,27 +75,28 @@ pipeline {
                             docker rm -f pip-audit-scan || true
 
                             docker create \
-                              --name pip-audit-scan \
-                              python:3.11-slim \
-                              sh -c "
+                            --name pip-audit-scan \
+                            python:3.11-slim \
+                            sh -c "
+                                mkdir -p /reports &&
                                 pip install --quiet pip-audit &&
                                 pip-audit \
-                                  -r /src/requirements.txt \
-                                  -f json \
-                                  -o /reports/pip-audit.json
-                              "
+                                -r /requirements.txt \
+                                -f json \
+                                -o /reports/pip-audit.json
+                            "
 
                             docker cp \
-                              requirements.txt \
-                              pip-audit-scan:/src/requirements.txt
+                            requirements.txt \
+                            pip-audit-scan:/requirements.txt
 
                             docker start -a pip-audit-scan
 
                             mkdir -p dependency-reports
 
                             docker cp \
-                              pip-audit-scan:/reports/pip-audit.json \
-                              dependency-reports/pip-audit.json
+                            pip-audit-scan:/reports/pip-audit.json \
+                            dependency-reports/pip-audit.json
 
                             docker rm -f pip-audit-scan
                         ''',
@@ -105,7 +106,7 @@ pipeline {
                     echo "pip-audit exit code: ${auditStatus}"
 
                     if (auditStatus != 0) {
-                        echo 'pip-audit detected vulnerable dependencies or encountered an error.'
+                        echo 'pip-audit detected vulnerabilities or encountered an error.'
                         currentBuild.result = 'UNSTABLE'
                     }
                 }
@@ -127,34 +128,34 @@ pipeline {
                     docker rm -f license-scan || true
 
                     docker create \
-                      --name license-scan \
-                      python:3.11-slim \
-                      sh -c "
-                        pip install --quiet \
-                          -r /src/requirements.txt \
-                          pip-licenses &&
+                    --name license-scan \
+                    python:3.11-slim \
+                    sh -c "
                         mkdir -p /reports &&
+                        pip install --quiet \
+                        -r /requirements.txt \
+                        pip-licenses &&
                         pip-licenses \
-                          --format=json \
-                          --output-file=/reports/licenses.json &&
+                        --format=json \
+                        --output-file=/reports/licenses.json &&
                         pip-licenses \
-                          --format=markdown \
-                          --output-file=/reports/licenses.md
-                      "
+                        --format=markdown \
+                        --output-file=/reports/licenses.md
+                    "
 
                     docker cp \
-                      requirements.txt \
-                      license-scan:/src/requirements.txt
+                    requirements.txt \
+                    license-scan:/requirements.txt
 
                     docker start -a license-scan
 
                     docker cp \
-                      license-scan:/reports/licenses.json \
-                      license-reports/licenses.json
+                    license-scan:/reports/licenses.json \
+                    license-reports/licenses.json
 
                     docker cp \
-                      license-scan:/reports/licenses.md \
-                      license-reports/licenses.md
+                    license-scan:/reports/licenses.md \
+                    license-reports/licenses.md
 
                     docker rm -f license-scan
                 '''
