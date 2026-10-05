@@ -5,6 +5,14 @@ pipeline {
         timestamps()
     }
 
+    parameters {
+        booleanParam(
+            name: 'DEMO_VULNERABLE_DEPENDENCIES',
+            defaultValue: false,
+            description: 'Use intentionally vulnerable dependencies to demonstrate the security gate'
+        )
+    }
+
     stages {
 
         stage('Checkout') {
@@ -71,44 +79,57 @@ pipeline {
         stage('Python Dependency Audit') {
             steps {
                 script {
+
+                    def requirementsFile = params.DEMO_VULNERABLE_DEPENDENCIES ?
+                        'requirements-vulnerable.txt' :
+                        'requirements.txt'
+
+                    echo "Scanning dependency file: ${requirementsFile}"
+
+                    sh 'docker rm -f pip-audit-scan || true'
+
+                    sh """
+                        docker create \
+                        --name pip-audit-scan \
+                        python:3.11-slim \
+                        sh -c "
+                            mkdir -p /reports &&
+                            pip install --quiet pip-audit &&
+                            pip-audit \
+                            -r /requirements.txt \
+                            -f json \
+                            -o /reports/pip-audit.json
+                        "
+
+                        docker cp \
+                        ${requirementsFile} \
+                        pip-audit-scan:/requirements.txt
+                    """
+
                     def auditStatus = sh(
-                        script: '''
-                            docker rm -f pip-audit-scan || true
-
-                            docker create \
-                            --name pip-audit-scan \
-                            python:3.11-slim \
-                            sh -c "
-                                mkdir -p /reports &&
-                                pip install --quiet pip-audit &&
-                                pip-audit \
-                                -r /requirements.txt \
-                                -f json \
-                                -o /reports/pip-audit.json
-                            "
-
-                            docker cp \
-                            requirements.txt \
-                            pip-audit-scan:/requirements.txt
-
-                            docker start -a pip-audit-scan
-
-                            mkdir -p dependency-reports
-
-                            docker cp \
-                            pip-audit-scan:/reports/pip-audit.json \
-                            dependency-reports/pip-audit.json
-
-                            docker rm -f pip-audit-scan
-                        ''',
+                        script: 'docker start -a pip-audit-scan',
                         returnStatus: true
                     )
 
                     echo "pip-audit exit code: ${auditStatus}"
 
+                    sh '''
+                        mkdir -p dependency-reports
+
+                        docker cp \
+                        pip-audit-scan:/reports/pip-audit.json \
+                        dependency-reports/pip-audit.json || true
+
+                        docker rm -f pip-audit-scan || true
+                    '''
+
                     if (auditStatus != 0) {
-                        error("SECURITY GATE FAILED: pip-audit detected one or more known vulnerable Python dependencies.")
+                        error(
+                            "SECURITY GATE FAILED: pip-audit detected known vulnerable Python dependencies."
+                        )
                     }
+
+                    echo 'SECURITY GATE PASSED: No known vulnerable Python dependencies detected.'
                 }
             }
         }
