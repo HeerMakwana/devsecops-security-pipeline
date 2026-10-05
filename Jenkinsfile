@@ -38,6 +38,7 @@ pipeline {
                           --format HTML \
                           --format JSON \
                           --out /report \
+                          --failOnCVSS 9.0 \
                           --noupdate
 
                         tar --exclude=.git \
@@ -106,8 +107,7 @@ pipeline {
                     echo "pip-audit exit code: ${auditStatus}"
 
                     if (auditStatus != 0) {
-                        echo 'pip-audit detected vulnerabilities or encountered an error.'
-                        currentBuild.result = 'UNSTABLE'
+                        error("SECURITY GATE FAILED: pip-audit detected one or more known vulnerable Python dependencies.")
                     }
                 }
             }
