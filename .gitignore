@@ -1,3 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Security scan reports
 dependency-reports/
 license-reports/
 zap-reports/
+
+# Local ZAP reports
+zap-report.html
+zap-report.json
+
+# Local backup files
+*.backup
+app-before-zap-remediation.py
+
+# Environment / IDE
+.env
+.vscode/
+.idea/
